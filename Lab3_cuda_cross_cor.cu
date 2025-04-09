@@ -1,7 +1,6 @@
-// cuda_cross_correlation.cu
-#include <iostream>
-#include <cstdlib>
-#include <ctime>
+#include <stdio.h>
+#include <cuda_runtime.h>
+#include <stdlib.h>
 
 #define INPUT_SIZE 256
 #define KERNEL_SIZE 8
@@ -9,82 +8,79 @@
 
 __constant__ float d_kernel[KERNEL_SIZE * KERNEL_SIZE];
 
-__global__ void crossCorrelateKernel(float* input, float* output, int width) {
-    // Calculate output indices
-    int out_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int out_y = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void crossCorrelate(float* input, float* output) {
+    int out_row = threadIdx.y;
+    int out_col = threadIdx.x;
 
-    if (out_x >= OUTPUT_SIZE || out_y >= OUTPUT_SIZE) return;
-
-    float sum = 0.0f;
-    for (int m = 0; m < KERNEL_SIZE; ++m) {
-        for (int n = 0; n < KERNEL_SIZE; ++n) {
-            int in_x = out_x + n;
-            int in_y = out_y + m;
-            sum += input[in_y * width + in_x] * d_kernel[m * KERNEL_SIZE + n];
+    if (out_row < OUTPUT_SIZE && out_col < OUTPUT_SIZE) {
+        float sum = 0.0f;
+        for (int m = 0; m < KERNEL_SIZE; m++) {
+            for (int n = 0; n < KERNEL_SIZE; n++) {
+                int in_row = out_row + m;
+                int in_col = out_col + n;
+                sum += input[in_row * INPUT_SIZE + in_col] *
+                       d_kernel[m * KERNEL_SIZE + n];
+            }
         }
+        output[out_row * OUTPUT_SIZE + out_col] = sum;
     }
-
-    output[out_y * OUTPUT_SIZE + out_x] = sum;
-}
-
-void generateRandomMatrix(float* matrix, int size) {
-    for (int i = 0; i < size; ++i)
-        matrix[i] = static_cast<float>(rand()) / RAND_MAX * 2 - 1;
 }
 
 int main() {
-    srand(time(0));
-
-    size_t inputBytes = INPUT_SIZE * INPUT_SIZE * sizeof(float);
-    size_t outputBytes = OUTPUT_SIZE * OUTPUT_SIZE * sizeof(float);
-    size_t kernelBytes = KERNEL_SIZE * KERNEL_SIZE * sizeof(float);
-
-    float *h_input = new float[INPUT_SIZE * INPUT_SIZE];
-    float *h_output = new float[OUTPUT_SIZE * OUTPUT_SIZE];
-    float *h_kernel = new float[KERNEL_SIZE * KERNEL_SIZE];
-
-    generateRandomMatrix(h_input, INPUT_SIZE * INPUT_SIZE);
-    generateRandomMatrix(h_kernel, KERNEL_SIZE * KERNEL_SIZE);
-
+    float h_input[INPUT_SIZE][INPUT_SIZE], h_kernel[KERNEL_SIZE][KERNEL_SIZE], h_output[OUTPUT_SIZE][OUTPUT_SIZE];
     float *d_input, *d_output;
-    cudaMalloc(&d_input, inputBytes);
-    cudaMalloc(&d_output, outputBytes);
 
-    cudaMemcpy(d_input, h_input, inputBytes, cudaMemcpyHostToDevice);
-    cudaMemcpyToSymbol(d_kernel, h_kernel, kernelBytes);
+    // Generate random float values between -1 and 1 for input and kernel
+    for (int i = 0; i < INPUT_SIZE; i++) {
+        for (int j = 0; j < INPUT_SIZE; j++) {
+            h_input[i][j] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+        }
+    }
+    for (int i = 0; i < KERNEL_SIZE; i++) {
+        for (int j = 0; j < KERNEL_SIZE; j++) {
+            h_kernel[i][j] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+        }
+    }
 
-    dim3 threadsPerBlock(16, 16);
-    dim3 blocksPerGrid((OUTPUT_SIZE + 15) / 16, (OUTPUT_SIZE + 15) / 16);
+    // Allocate device memory
+    cudaMalloc(&d_input, INPUT_SIZE * INPUT_SIZE * sizeof(float));
+    cudaMalloc(&d_output, OUTPUT_SIZE * OUTPUT_SIZE * sizeof(float));
 
-    // 🎯 CUDA timing starts here
+    // Copy data to device
+    cudaMemcpy(d_input, h_input, INPUT_SIZE * INPUT_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyToSymbol(d_kernel, h_kernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
+
+    // CUDA timing setup
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    // 🚀 Launch the kernel
-    crossCorrelateKernel<<<blocksPerGrid, threadsPerBlock>>>(d_input, d_output, INPUT_SIZE);
-    cudaDeviceSynchronize();  // Wait for kernel to complete
+    // Launch kernel
+    dim3 threadsPerBlock(OUTPUT_SIZE, OUTPUT_SIZE);  // 9x9 for 16x16 input and 8x8 kernel
+    crossCorrelate<<<1, threadsPerBlock>>>(d_input, d_output);
+    cudaDeviceSynchronize();
 
-    // 🛑 CUDA timing ends here
+    // End CUDA timing
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    std::cout << "CUDA cross-correlation complete." << std::endl;
-    std::cout << "Execution Time: " << milliseconds << " ms" << std::endl;
+    printf("CUDA Execution Time: %.4f ms\n", milliseconds);
 
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
+    // Copy result back
+    cudaMemcpy(h_output, d_output, OUTPUT_SIZE * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // Copy result back to host
-    cudaMemcpy(h_output, d_output, outputBytes, cudaMemcpyDeviceToHost);
+    // Print first few results
+    printf("Cross-Correlation Output (First 4x4 Elements):\n");
+    for (int i = 0; i < 4 && i < OUTPUT_SIZE; i++) {
+        for (int j = 0; j < 4 && j < OUTPUT_SIZE; j++) {
+            printf("%6.2f ", h_output[i][j]);
+        }
+        printf("\n");
+    }
 
     // Cleanup
-    delete[] h_input;
-    delete[] h_output;
-    delete[] h_kernel;
     cudaFree(d_input);
     cudaFree(d_output);
 
