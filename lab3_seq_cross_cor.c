@@ -1,32 +1,31 @@
-// sequential_cross_correlation.cpp
-#include <iostream>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
-#include <chrono>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+//#include <iostream>
+//if run on VS Code for Check, make sure to include the tasks.json
 
 #define INPUT_SIZE 256
 #define KERNEL_SIZE 8
 #define OUTPUT_SIZE (INPUT_SIZE - KERNEL_SIZE + 1)
 
-using namespace std;
+float input[INPUT_SIZE][INPUT_SIZE];
+float kernel[KERNEL_SIZE][KERNEL_SIZE];
+float output[OUTPUT_SIZE][OUTPUT_SIZE];
 
-void generateRandomMatrix(vector<vector<float>> &matrix, int rows, int cols) {
-    for (int i = 0; i < rows; ++i)
-        for (int j = 0; j < cols; ++j)
-            matrix[i][j] = static_cast<float>(rand()) / RAND_MAX * 2 - 1;
+// Fill with random floats between -1 and 1
+void initializeMatrix(float* mat, int rows, int cols) {
+    for (int i = 0; i < rows * cols; i++) {
+        mat[i] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+    }
 }
 
-void crossCorrelate(
-    const vector<vector<float>> &input,
-    const vector<vector<float>> &kernel,
-    vector<vector<float>> &output
-) {
-    for (int i = 0; i < OUTPUT_SIZE; ++i) {
-        for (int j = 0; j < OUTPUT_SIZE; ++j) {
+// Perform 2D cross-correlation
+void crossCorrelateCPU() {
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        for (int j = 0; j < OUTPUT_SIZE; j++) {
             float sum = 0.0f;
-            for (int m = 0; m < KERNEL_SIZE; ++m) {
-                for (int n = 0; n < KERNEL_SIZE; ++n) {
+            for (int m = 0; m < KERNEL_SIZE; m++) {
+                for (int n = 0; n < KERNEL_SIZE; n++) {
                     sum += input[i + m][j + n] * kernel[m][n];
                 }
             }
@@ -35,27 +34,32 @@ void crossCorrelate(
     }
 }
 
-
 int main() {
-    srand(time(0));
-    vector<vector<float>> input(INPUT_SIZE, vector<float>(INPUT_SIZE));
-    vector<vector<float>> kernel(KERNEL_SIZE, vector<float>(KERNEL_SIZE));
-    vector<vector<float>> output(OUTPUT_SIZE, vector<float>(OUTPUT_SIZE, 0.0f));
+    srand((unsigned int)time(NULL));
 
-    generateRandomMatrix(input, INPUT_SIZE, INPUT_SIZE);
-    generateRandomMatrix(kernel, KERNEL_SIZE, KERNEL_SIZE);
+    // Initialize input and kernel
+    initializeMatrix(&input[0][0], INPUT_SIZE, INPUT_SIZE);
+    initializeMatrix(&kernel[0][0], KERNEL_SIZE, KERNEL_SIZE);
 
-    // Start timing
-    auto start = std::chrono::high_resolution_clock::now();
+    // Start timer
+    clock_t start = clock();
 
-    crossCorrelate(input, kernel, output);
+    // Run cross-correlation
+    crossCorrelateCPU();
 
-    // End timing
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
+    // Stop timer
+    clock_t end = clock();
+    double time_spent = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
+    printf("CPU Execution Time: %.2f ms\n", time_spent);
 
-    std::cout << "Sequential cross-correlation complete." << std::endl;
-    std::cout << "Execution Time: " << elapsed.count() << " ms" << std::endl;
+    // Print top 4x4 part of result
+    printf("Output (Top 4x4):\n");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            printf("%6.2f ", output[i][j]);
+        }
+        printf("\n");
+    }
 
     return 0;
 }
