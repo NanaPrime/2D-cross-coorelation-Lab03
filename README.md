@@ -28,10 +28,10 @@ Verify that both the sequential and parallel implementations produce the same co
 Performance Analysis:
 Analyze the performance of your implementation, including execution time (Please refer to the command in the text file shared in the handouts).
 
--Oracle
+
 Compare the time consumption of the CUDA implementation with the sequential (CPU) implementation as a baseline.
 Write a report:
 Write a report to describe the above procedure, including the code, verification, and performance analysis.
 You can refer to the following example about 2D matrix multiplication to learn the dim3 API for designing your cross-correlation CUDA code
 
-
+- Oracle 
