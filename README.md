@@ -1,4 +1,7 @@
 # 2D-cross-coorelation-Lab03
+
+This is for AI Hardware and Programming Class
+
 Lab 3: 2D Cross-Correlation (Convolution) Using CUDA on Jetson Nano
 This lab requires you to implement a CUDA-based 2D cross-correlation operation between an input matrix and a filter kernel. The implementation must use statically allocated shared memory and no padding. The output matrix should be computed such that the element at position (i,j) is:
 
@@ -24,6 +27,8 @@ Verification:
 Verify that both the sequential and parallel implementations produce the same correct results on Jetson Nano.
 Performance Analysis:
 Analyze the performance of your implementation, including execution time (Please refer to the command in the text file shared in the handouts).
+
+-Oracle
 Compare the time consumption of the CUDA implementation with the sequential (CPU) implementation as a baseline.
 Write a report:
 Write a report to describe the above procedure, including the code, verification, and performance analysis.
