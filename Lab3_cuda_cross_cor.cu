@@ -16,8 +16,8 @@ void initializeMatrix(float* matrix, int rows, int cols) {
     }
 }
 
+// CUDA Kernel for 2D cross-correlation
 __global__ void crossCorrelateKernel(float* input, float* output) {
-    // Kernel implementation goes here
     int out_x = blockIdx.x * blockDim.x + threadIdx.x;
     int out_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -53,10 +53,10 @@ int main() {
     // Copy the input matrix to device memory
     cudaMemcpy(d_input, h_input, INPUT_SIZE * INPUT_SIZE * sizeof(float), cudaMemcpyHostToDevice);
     
-    // Copy the kernel matrix to constant memory (this assumes you have the kernel set up properly)
+    // Copy the kernel matrix to constant memory
     cudaMemcpyToSymbol(d_kernel, h_kernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
 
-    // Launch the kernel (configure grid and block sizes as needed)
+    // Launch the kernel
     dim3 threadsPerBlock(16, 16);
     dim3 blocksPerGrid((OUTPUT_SIZE + 15) / 16, (OUTPUT_SIZE + 15) / 16);
     crossCorrelateKernel<<<blocksPerGrid, threadsPerBlock>>>(d_input, d_output);
@@ -64,8 +64,14 @@ int main() {
     // Copy the result back to the host
     cudaMemcpy(h_output, d_output, OUTPUT_SIZE * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // Print or verify the output
-    // (Add your verification code here)
+    // Print the output matrix (top-left 4x4 elements)
+    printf("Output (Top 4x4):\n");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            printf("%6.2f ", h_output[i * OUTPUT_SIZE + j]);
+        }
+        printf("\n");
+    }
 
     // Cleanup
     free(h_input);
