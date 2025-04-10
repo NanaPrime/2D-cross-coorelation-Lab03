@@ -56,10 +56,25 @@ int main() {
     // Copy the kernel matrix to constant memory
     cudaMemcpyToSymbol(d_kernel, h_kernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
 
+    // Start timing
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+
     // Launch the kernel
     dim3 threadsPerBlock(16, 16);
     dim3 blocksPerGrid((OUTPUT_SIZE + 15) / 16, (OUTPUT_SIZE + 15) / 16);
     crossCorrelateKernel<<<blocksPerGrid, threadsPerBlock>>>(d_input, d_output);
+
+    // Stop timing
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    // Calculate elapsed time
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    printf("CUDA Kernel Execution Time: %.4f ms\n", milliseconds);
 
     // Copy the result back to the host
     cudaMemcpy(h_output, d_output, OUTPUT_SIZE * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
@@ -79,6 +94,8 @@ int main() {
     free(h_output);
     cudaFree(d_input);
     cudaFree(d_output);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     return 0;
 }
